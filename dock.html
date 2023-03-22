@@ -3418,6 +3418,8 @@
 		}
 	};
 
+	var asyncRemoveList = []; // storage for elements waiting for removal
+
 	function fadeOutNode(node){
 		if (fadeout && horizontal){
 			node.classList.add("fadeout");
@@ -3432,14 +3434,37 @@
 				node.remove();
 			},500,node);
 		} else if (scrolltype === "smooth"){
-			node.style.transition =  "all linear 0.5s";
-			node.style.height =  "0"; 
-			setTimeout(function(node){
-				node.remove();
-			},500,node);
+			if (node.getBoundingClientRect().bottom < mainOutputWindow.scrollTop) { // check the node is off top of screen
+				asyncRemoveList.push(node); // register for removal
+			} else { // if onscreen, fall back to original method
+				node.style.transition =  "all linear 0.5s";
+				node.style.height =  "0"; 
+				setTimeout(function(node){
+					node.remove();
+				},500,node);
+			}
 		} else {
 			node.remove();
 		}
+	}
+
+	function asyncRemoveAll() {
+		var sTop = mainOutputWindow.scrollTop; 				// record current visible area of the #output window
+		var sHeight = mainOutputWindow.scrollHeight; 			// and it's total height
+		asyncRemoveList.forEach(node => { node.remove(); }); 		// remove all waiting nodes
+		var nRem = asyncRemoveList.length;
+		asyncRemoveList = []; 						// clear list
+		sTop -= (sHeight - mainOutputWindow.scrollHeight); 		// calculate ammount that has been removed, and calculate new top
+		if(nRem > 0) { 							// and if something was removed
+			mainOutputWindow.scrollTo({ top: sTop, left: 0, behavior: 'instant' });
+		}								// reset scroll so nothing onscreen looks different.
+	}
+
+	var asyncRemoveTimeout = null; // timeout timer. if the scrollend event wasn't still experimental I'd use that.
+
+	function resetAsyncRemoveTimeout(t) { // workaround for lack of scrollend event. insert this after every scrollTo() with appropriate time: 100ms for instant scrolls, 500ms for smooth scrolls.
+		if(asyncRemoveTimeout) { clearTimeout(asyncRemoveTimeout); }
+		asyncRemoveTimeout = setTimeout(asyncRemoveAll, t);
 	}
 
 	function slideIn(node){
@@ -4145,12 +4170,14 @@
 				if ((getById("output").scrollHeight<(getById("output").scrollTop + getById("output").clientHeight+autoScrollCatch)) || forceAutoscroll){
 					if (scrolltype=="instant"){
 						getById("output").scrollTop = getById("output").scrollHeight;
+						resetAsyncRemoveTimeout(100);
 					} else {
 						getById("output").scrollTo({
 							top: getById("output").scrollHeight,
 							left: 0,
 							behavior:scrolltype
 						});
+						resetAsyncRemoveTimeout(500;)
 					}
 				}
 			}
@@ -4164,12 +4191,14 @@
 				if ((document.body.scrollHeight<(document.body.scrollTop + document.body.clientHeight+autoScrollCatch)) || forceAutoscroll){
 					if (scrolltype=="instant"){
 						document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
+						resetAsyncRemoveTimeout(100);
 					} else {
 						document.scrollingElement.scrollTo({
 							top: document.scrollingElement.scrollHeight,
 							left: 0,
 							behavior:scrolltype
 						});
+						resetAsyncRemoveTimeout(500);
 					}
 				}
 			}
