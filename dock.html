@@ -17,6 +17,7 @@
 			--scale-output: 1.0;
 			--font-color: #FFF;
 			--font-color-name: #DDD;
+			--font-family: 'Sora';
 			--background-color: #36393F;
 			--menu-background-color: #2F3136;
 			--link-color: #5AF;
@@ -172,7 +173,7 @@
 		}
 
 		body {
-			font-family: 'Sora', Roboto, Arial, sans-serif;
+			font-family: var(--font-family), 'Sora', Roboto, Arial, sans-serif;
 			color: var(--font-color);
 			margin: 0 0;
 			background-color: var(--background-color);
@@ -3674,7 +3675,7 @@
 
 			var nameColor = "";
 			if (data.nameColor && colorized){
-				nameColor = "style='color:"+data.nameColor+";'";
+				nameColor = "style='color:"+data.nameColor+"; --name-color:"+data.nameColor+";'";
 			}
 
 			var chatbadges = "";
