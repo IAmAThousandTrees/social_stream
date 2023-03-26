@@ -49,6 +49,23 @@ html {
 	min-height: 0px !important;
 }
 
+.donation {
+	.hl-message {
+		background-color: var(--donationColor) !important;
+	}
+	.donationAmmount {
+		background-color: white;
+		color: var(--donationColor);
+		padding: 6px;
+		margin: 4px;
+		font-size: 180%;
+		border: 3px solid var(--donationColor);
+		border-radius: 0.5em;
+		float: right;
+		animation: blobble-pic 1s ease 0.5s;
+	}
+}
+
 .hl-profile-pic {
 	max-height: 48px !important;
 	min-height: 0px;
