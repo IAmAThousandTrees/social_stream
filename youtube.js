@@ -14,9 +14,8 @@
 	  xhr.send();
 	}
 	
+	var DNS = new Set(); // IDs marked Do Not Send, for when the deletion occurs during the send callback timeout
 	//var channelName = "";
-	
-	var messageHistory = [];
 	
 	function processMessage(ele, wss=true){
 		  if(ele.hasAttribute("is-deleted")) {
@@ -27,16 +26,6 @@
 			  return;
 		  }
 		  
-		  
-		  if (ele.id && messageHistory.includes(ele.id)){
-			  return;
-		  } else if (ele.id){
-			  messageHistory.push(ele.id);
-			  messageHistory = messageHistory.slice(-200);
-		  }
-		  if (ele.querySelector("[in-banner]")){
-			  return;
-		  }
 		//if (channelName && settings.customyoutubestate){
 			//if (settings.customyoutubeaccount && settings.customyoutubeaccount.textsetting && (settings.customyoutubeaccount.textsetting.toLowerCase() !== channelName.toLowerCase())){
 			//	return;
@@ -213,7 +202,9 @@
 		data.type = "youtube";
 		
 		try {
-			chrome.runtime.sendMessage(chrome.runtime.id, { "message": data }, function(){});
+			chrome.runtime.sendMessage(chrome.runtime.id, { "message": data }, (res,e=ele)=>{ e.localssId=(res.localId); 
+													  if(DNS.delete(e.id)) msgdeleted(e);
+													}); // catch fallthrough deletions after sending too
 		} catch(e){}
 		
 	}
@@ -247,36 +238,42 @@
 		}
 	});
 
+	function msgdeleted(node) {
+		if(node.localssId) {
+			try {
+				chrome.runtime.sendMessage(chrome.runtime.id, {deleteMessage: node.localssId}, function(){});
+			} catch(e){}
+		} else { DNS.add(node.id); } // message was deleted before it got a local ID, mark as Do Not Send
+	}
+
+	const start = Date.now();
+
+	var tags = new Set([	"yt-live-chat-text-message-renderer".toUpperCase(),
+							"yt-live-chat-paid-message-renderer".toUpperCase(),
+							"yt-live-chat-membership-item-renderer".toUpperCase(),
+							"yt-live-chat-paid-sticker-renderer".toUpperCase(),
+							"ytd-sponsorships-live-chat-gift-purchase-announcement-renderer".toUpperCase()
+				 		]);
+
+	/// when a node gets deleted, all messages in the display get momentarily removed and then all added back without the deleted messages.
+	/// all these mutations are delivered in a single mutation observation callback, so we can keep the information contained here and only emit the deletions.
+
+	function nodesFromMutations(mutations) {
+		var addedNodes = new Map(), removedNodes = [];
+		mutations.forEach(mutation=>Array.from(mutation.addedNodes).filter(node=>tags.has(node.tagName)).forEach(node=>addedNodes.set(node.id, node))); // gather relevant added nodes in a Map, keyed by ID.
+		if(addedNodes.size > 5) mutations.reduce((rn, mutation)=>rn.concat(Array.from(mutation.removedNodes).filter(node=>tags.has(node.tagName))), removedNodes); // if there's an unusually large number of added nodes, gather relevent removed nodes in an array.
+		if(addedNodes.size < removedNodes.length) removedNodes.filter(node=>!addedNodes.delete(node.id)).forEach(msgdeleted); // addedNodes<removedNodes only for a deletion event. remove matching ID's from both, call msgdeleted for the remaining removed nodes. addedNodes should end up empty.
+		return addedNodes;
+	}
+	
 	function onElementInserted(target, callback) {
-		var onMutationsObserved = function(mutations) {
-			mutations.forEach(function(mutation) {
-				if (mutation.addedNodes.length) {
-					for (var i = 0, len = mutation.addedNodes.length; i < len; i++) {
-						try{
-							if (mutation.addedNodes[i] && mutation.addedNodes[i].classList && mutation.addedNodes[i].classList.contains("yt-live-chat-banner-renderer")) {
-								continue;
-							} else if (mutation.addedNodes[i].tagName == "yt-live-chat-text-message-renderer".toUpperCase()) {
-								callback(mutation.addedNodes[i]);
-							} else if (mutation.addedNodes[i].tagName == "yt-live-chat-paid-message-renderer".toUpperCase()) {
-								callback(mutation.addedNodes[i]);
-							} else if (mutation.addedNodes[i].tagName == "yt-live-chat-membership-item-renderer".toUpperCase()) {
-								callback(mutation.addedNodes[i]);
-							} else if (mutation.addedNodes[i].tagName == "yt-live-chat-paid-sticker-renderer".toUpperCase()) {
-								callback(mutation.addedNodes[i]);
-							} else if (mutation.addedNodes[i].tagName == "ytd-sponsorships-live-chat-gift-purchase-announcement-renderer".toUpperCase()) {
-								callback(mutation.addedNodes[i]);
-							}
-						} catch(e){console.error(e);}
-					}
-				}
-			});
-		};
 		if (!target){return;}
 		var config = { childList: true, subtree: true };
 		var MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
-		var observer = new MutationObserver(onMutationsObserved);
+		var observer = new MutationObserver(mutations=>nodesFromMutations(mutations).forEach(callback));
 		observer.observe(target, config);
 	}
+
 
     console.log("Social stream inserted");
 	
