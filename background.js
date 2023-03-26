@@ -533,7 +533,7 @@ chrome.runtime.onMessage.addListener(
 				}
 			} else if ("message" in request) { // forwards messages from Youtube/Twitch/Facebook to the remote dock via the VDO.Ninja API
 				request.message.tid = sender.tab.id; // including the source (tab id) of the social media site the data was pulled from
-				sendResponse({"state":isExtensionOn}); // respond to Youtube/Twitch/Facebook with the current state of the plugin; just as possible confirmation.
+				var response = {"state":isExtensionOn}; // respond to Youtube/Twitch/Facebook with the current state of the plugin; just as possible confirmation.
 
 				if (isExtensionOn && request.message.type){
 					if (!checkIfAllowed(request.message.type)){ // toggled is not enabled for this site
@@ -565,8 +565,12 @@ chrome.runtime.onMessage.addListener(
 						}
 					}
 
-					sendToDestinations(request.message); // send the data to the dock
+					response.localId = sendToDestinations(request.message); // send the data to the dock
 				}
+				sendResponse(response);
+			} else if ("deleteMessage" in request) { // request = {"deleteMessage": localId}
+				sendResponse({"state":isExtensionOn});
+				sendToDestinations(request);
 			} else if ("getSettings" in request) { // forwards messages from Youtube/Twitch/Facebook to the remote dock via the VDO.Ninja API
 				sendResponse({"settings":settings, isExtensionOn:isExtensionOn}); // respond to Youtube/Twitch/Facebook with the current state of the plugin; just as possible confirmation.
 			} else if ("keepAlive" in request) { // forwards messages from Youtube/Twitch/Facebook to the remote dock via the VDO.Ninja API
@@ -828,7 +832,7 @@ function sendToDestinations(message){
 	sendToDisk(message);
 	sendToH2R(message);
 	sendToPost(message);
-	return true;
+	return messageCounter;
 }
 
 function sendToH2R(data){
