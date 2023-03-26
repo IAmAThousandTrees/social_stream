@@ -3595,8 +3595,13 @@
 			}
 
 			var donationHTML = "";
+			var donationStyle = "";
+			var donationClass = "";
 			if (data.hasDonation){
 				donationHTML = "<span class='donationAmount hl-donation'>"+data.hasDonation+"</span>";
+				donationClass = " donation"
+				if(data.backgroundColor)
+					donationStyle = " style='--donationColor: "+backgroundColor+";'";
 			} else {
 				data.hasDonation = "";
 			}
