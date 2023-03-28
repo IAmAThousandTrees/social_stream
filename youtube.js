@@ -14,10 +14,12 @@
 	  xhr.send();
 	}
 	
-	var DNS = new Set(); // IDs marked Do Not Send, for when the deletion occurs during the send callback timeout
+	var DNS = new Set(); // IDs marked Do Not Send, for when the deletion occurs before the send callback timeout and message response callback completes
 	//var channelName = "";
 	
 	function processMessage(ele, wss=true){
+		  if (DNS.delete(ele.id)) return;
+		
 		  if(ele.hasAttribute("is-deleted")) {
 			return;
 		  }
@@ -262,7 +264,7 @@
 		var addedNodes = new Map(), removedNodes = [];
 		mutations.forEach(mutation=>Array.from(mutation.addedNodes).filter(n=>tags.has(n.tagName)).forEach(n=>addedNodes.set(n.id, n))); // gather relevant added nodes in a Map, keyed by ID.
 		if(addedNodes.size > 5) removedNodes = mutations.reduce((rn, mutation)=>rn.concat(Array.from(mutation.removedNodes).filter(n=>tags.has(n.tagName))), removedNodes); // if there's an unusually large number of added nodes, gather relevent removed nodes in an array.
-		if(removedNodes.length > 249) removedNodes.filter(n=>!addedNodes.delete(n.id)).forEach(msgdeleted); // addedNodes<removedNodes only for a deletion event. remove matching ID's from both, call msgdeleted for the remaining removed nodes. addedNodes should end up empty.
+		if((removedNodes.length > addedNodes.size) || (removedNodes.length > 230)) removedNodes.filter(n=>!addedNodes.delete(n.id)).forEach(msgdeleted); // addedNodes<removedNodes only for a deletion event. remove matching ID's from both, call msgdeleted for the remaining removed nodes. addedNodes should end up empty.
 		return addedNodes;
 	}
 	
